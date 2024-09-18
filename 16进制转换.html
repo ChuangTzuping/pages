@@ -1,0 +1,254 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Hexadecimal Converter (8 bytes max)</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            text-align: center;
+            margin: 50px;
+        }
+        input {
+            padding: 10px;
+            font-size: 18px;
+            margin: 10px;
+            width: 1000px;
+        }
+        .output {
+            font-size: 20px;
+            margin-top: 20px;
+        }
+        input[readonly] {
+            background-color: #f0f0f0;
+        }
+        .section {
+            margin-top: 30px;
+        }
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 20px;
+        }
+        th, td {
+            border: 1px solid #ddd;
+            padding: 10px;
+            text-align: left;
+        }
+        th {
+            background-color: #f4f4f4;
+        }
+        td {
+            font-family: monospace;
+        }
+    </style>
+</head>
+<body>
+
+<h1>Hexadecimal Converter (8 bytes max)</h1>
+
+<div class="output">
+    <!-- HEX, DEC, BIN同时作为输入和输出框 -->
+    <p>HEX: <input type="text" id="hexDisplay" oninput="delayedHexInput(event);" maxlength="19"></p>
+    <p>DEC: <input type="text" id="decDisplay" oninput="delayedDecInput(event);"></p>
+    <p>BIN: <input type="text" id="binDisplay" oninput="delayedBinInput(event);" maxlength="79"></p>
+</div>
+
+<div class="section">
+    <h2>Byte Length Parsing</h2>
+    <table>
+        <thead>
+            <tr>
+                <th>Type</th>
+                <th>Hexadecimal</th>
+                <th>Decimal (Unsigned)</th>
+                <th>Decimal (Signed)</th>
+                <th>Binary</th>
+            </tr>
+        </thead>
+        <tbody id="byteParsing">
+            <!-- 这里将插入字节解析的表格内容 -->
+        </tbody>
+    </table>
+</div>
+
+<script>
+    const MAX_BITS = 64; // 64位即8字节
+    const BYTE_SIZES = {
+        BYTE: 8,
+        WORD: 16,
+        DWORD: 32,
+        QWORD: 64
+    };
+
+    let timeout = null;
+
+    // 延迟处理HEX输入
+    function delayedHexInput(event) {
+        clearTimeout(timeout);
+        timeout = setTimeout(() => {
+            validateHexInput(event);
+            hexToOthers();
+        }, 1000); // 1秒延迟
+    }
+
+    // 延迟处理DEC输入
+    function delayedDecInput(event) {
+        clearTimeout(timeout);
+        timeout = setTimeout(() => {
+            validateDecInput(event);
+            decToOthers();
+        }, 1000); // 1秒延迟
+    }
+
+    // 延迟处理BIN输入
+    function delayedBinInput(event) {
+        clearTimeout(timeout);
+        timeout = setTimeout(() => {
+            validateBinInput(event);
+            binToOthers();
+        }, 1000); // 1秒延迟
+    }
+
+    function hexToOthers() {
+        let hexValue = document.getElementById("hexDisplay").value.replace(/\s+/g, ''); // 去除空格
+        if (hexValue) {
+            try {
+                let decValue = BigInt("0x" + hexValue); // 使用BigInt处理大数
+                document.getElementById("decDisplay").value = decValue;
+                let binValue = formatBinary(decValue.toString(2));
+                document.getElementById("binDisplay").value = binValue;
+                document.getElementById("hexDisplay").value = formatHex(hexValue.toUpperCase());
+                updateByteParsing(hexValue);
+            } catch (e) {
+                console.error("Invalid Hex Input");
+            }
+        } else {
+            clearOutputs();
+        }
+    }
+
+    function decToOthers() {
+        let decValue = document.getElementById("decDisplay").value;
+        if (decValue) {
+            try {
+                let decNum = BigInt(decValue);
+                let hexValue = to64BitHex(decNum);
+                document.getElementById("hexDisplay").value = formatHex(hexValue);
+                document.getElementById("binDisplay").value = formatBinary(to64BitBinary(decNum));
+                updateByteParsing(hexValue);
+            } catch (e) {
+                console.error("Invalid Decimal Input");
+            }
+        } else {
+            clearOutputs();
+        }
+    }
+
+    function binToOthers() {
+        let binValue = document.getElementById("binDisplay").value.replace(/\s+/g, ''); // 去除空格
+        if (binValue) {
+            try {
+                let decValue = BigInt("0b" + binValue); // 使用BigInt处理二进制
+                let hexValue = to64BitHex(decValue);
+                document.getElementById("decDisplay").value = decValue;
+                document.getElementById("hexDisplay").value = formatHex(hexValue);
+                document.getElementById("binDisplay").value = formatBinary(binValue);
+                updateByteParsing(hexValue);
+            } catch (e) {
+                console.error("Invalid Binary Input");
+            }
+        } else {
+            clearOutputs();
+        }
+    }
+
+    // 限制 HEX 输入框只能输入十六进制字符
+    function validateHexInput(event) {
+        const input = event.target;
+        input.value = input.value.replace(/[^0-9a-fA-F]/g, ''); // 移除非十六进制字符
+    }
+
+    // 限制 DEC 输入框只能输入数字和负号
+    function validateDecInput(event) {
+        const input = event.target;
+        input.value = input.value.replace(/[^0-9\-]/g, ''); // 移除非数字和负号字符
+        // 确保负号只能出现在最前面
+        if (input.value.indexOf('-') > 0) {
+            input.value = input.value.replace(/-/g, ''); // 如果负号不在最前面，则移除
+        }
+    }
+
+    // 限制 BIN 输入框只能输入 0 和 1
+    function validateBinInput(event) {
+        const input = event.target;
+        input.value = input.value.replace(/[^01]/g, ''); // 移除非0和1字符
+        // 重新格式化输入内容
+        input.value = formatBinary(input.value);
+    }
+
+    // 将数值转换为64位的二进制表示
+    function to64BitBinary(num) {
+        let binary = (num < 0 ? BigInt.asUintN(64, num) : num).toString(2); // 处理负数补码
+        return binary.padStart(MAX_BITS, '0'); // 补全为64位
+    }
+
+    // 将数值转换为16位的十六进制表示（即8字节）
+    function to64BitHex(num) {
+        let hex = (num < 0 ? BigInt.asUintN(64, num) : num).toString(16).toUpperCase(); // 处理负数补码
+        return hex.padStart(16, '0'); // 补全为16位
+    }
+
+    // 从右往左格式化二进制，每4位加一个空格
+    function formatBinary(bin) {
+        return bin.split('').reverse().join('') // 反转字符串
+                  .replace(/(.{4})/g, '$1 ') // 每4位加空格
+                  .split('').reverse().join('') // 再次反转恢复原顺序
+                  .trim(); // 去除多余空格
+    }
+
+    // 从右往左格式化十六进制，每4位加一个空格
+    function formatHex(hex) {
+        return hex.split('').reverse().join('') // 反转字符串
+                  .replace(/(.{4})/g, '$1 ') // 每4位加空格
+                  .split('').reverse().join('') // 再次反转恢复原顺序
+                  .trim(); // 去除多余空格
+    }
+
+    // 更新字节解析的表格内容
+    function updateByteParsing(hexValue) {
+        let output = '';
+        let paddedHex = hexValue.padStart(16, '0'); // 确保有16位
+
+        for (const [label, bits] of Object.entries(BYTE_SIZES)) {
+            let hexPart = paddedHex.slice(16 - bits / 4);
+            let unsignedDecPart = BigInt("0x" + hexPart);
+            let signedDecPart = BigInt.asIntN(bits, unsignedDecPart); // 处理负数补码
+            let binPart = formatBinary(unsignedDecPart.toString(2).padStart(bits, '0'));
+
+            output += `
+                <tr>
+                    <td>${label}</td>
+                    <td>${formatHex(hexPart.toUpperCase())}</td>
+                    <td>${unsignedDecPart}</td>
+                    <td>${signedDecPart}</td>
+                    <td>${binPart}</td>
+                </tr>
+            `;
+        }
+
+        document.getElementById("byteParsing").innerHTML = output;
+    }
+
+    // 清除输出值
+    function clearOutputs() {
+        document.getElementById("hexDisplay").value = '';
+        document.getElementById("decDisplay").value = '';
+        document.getElementById("binDisplay").value = '';
+        document.getElementById("byteParsing").innerHTML = '';
+    }
+</script>
+
+</body>
+</html>
