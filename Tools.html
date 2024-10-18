@@ -3,28 +3,63 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Hexadecimal Converter (8 bytes max)</title>
+    <title>Modbus Tools</title>
     <style>
         body {
             font-family: Arial, sans-serif;
             text-align: center;
-            margin: 50px;
+            margin: 20px;
+        }
+        ul {
+            list-style-type: none;
+            margin: 0;
+            padding: 0;
+            overflow: hidden;
+            background-color: #333;
+        }
+        li {
+            float: left;
+        }
+        li a {
+            display: block;
+            color: white;
+            text-align: center;
+            padding: 14px 16px;
+            text-decoration: none;
+        }
+        li a:hover {
+            background-color: #111;
+        }
+        .tab-content {
+            display: none;
+            padding: 20px;
+            border: 1px solid #ccc;
+            border-top: none;
+        }
+        .active-tab {
+            display: block;
+        }
+        .output p {
+            margin: 10px;
         }
         input {
             padding: 10px;
             font-size: 18px;
-            margin: 10px;
-            width: 1000px;
+            width: 80%;
         }
-        .output {
-            font-size: 20px;
-            margin-top: 20px;
+        button {
+            padding: 10px 20px;
+            margin: 10px;
+            background-color: #4CAF50;
+            color: white;
+            border: none;
+            cursor: pointer;
+        }
+        button:hover {
+            background-color: #45a049;
         }
         input[readonly] {
             background-color: #f0f0f0;
-        }
-        .section {
-            margin-top: 30px;
         }
         table {
             width: 100%;
@@ -42,38 +77,121 @@
         td {
             font-family: monospace;
         }
+        .crc-output span {
+            color: red; /* CRC部分字体颜色 */
+        }
+        .copy-button {
+            background-color: #008CBA;
+            color: white;
+            padding: 10px;
+            cursor: pointer;
+            border: none;
+        }
+        .copy-button:hover {
+            background-color: #005f73;
+        }
     </style>
 </head>
 <body>
 
-<h1>Hexadecimal Converter (8 bytes max)</h1>
+<!-- <h1>Modbus Tools</h1> -->
 
-<div class="output">
-    <!-- HEX, DEC, BIN同时作为输入和输出框 -->
-    <p>HEX: <input type="text" id="hexDisplay" oninput="delayedHexInput(event);" maxlength="19"></p>
-    <p>DEC: <input type="text" id="decDisplay" oninput="delayedDecInput(event);"></p>
-    <p>BIN: <input type="text" id="binDisplay" oninput="delayedBinInput(event);" maxlength="79"></p>
+<!-- 页签导航 -->
+<ul>
+    <li><a href="javascript:void(0);" class="tab-link" onclick="openTab('crcTab')">CRC Calculator</a></li>
+    <li><a href="javascript:void(0);" class="tab-link" onclick="openTab('hexConverterTab')">Hex Converter</a></li>
+</ul>
+
+<!-- CRC 校验工具页签内容 -->
+<div id="crcTab" class="tab-content active-tab">
+    <h2>Modbus CRC Calculator</h2>
+    <p>Enter Modbus data (in hexadecimal):</p>
+    <input type="text" id="modbusData" placeholder="01 03 04 41 CB 42 B7 EF 27" oninput="calculateCRC()">
+
+    <h3>Output</h3>
+    <p id="crcResult"></p>
+    <button class="copy-button" onclick="copyToClipboard('crcResult')">Copy Output</button>
 </div>
 
-<div class="section">
-    <h2>Byte Length Parsing</h2>
-    <table>
-        <thead>
-            <tr>
-                <th>Type</th>
-                <th>Hexadecimal</th>
-                <th>Decimal (Unsigned)</th>
-                <th>Decimal (Signed)</th>
-                <th>Binary</th>
-            </tr>
-        </thead>
-        <tbody id="byteParsing">
-            <!-- 这里将插入字节解析的表格内容 -->
-        </tbody>
-    </table>
+<!-- Hexadecimal Converter 工具页签内容 -->
+<div id="hexConverterTab" class="tab-content">
+    <h2>Hexadecimal Converter (8 bytes max)</h2>
+    <div class="output">
+        <p>HEX: <input type="text" id="hexDisplay" oninput="delayedHexInput(event);" maxlength="19"></p>
+        <p>DEC: <input type="text" id="decDisplay" oninput="delayedDecInput(event);"></p>
+        <p>BIN: <input type="text" id="binDisplay" oninput="delayedBinInput(event);" maxlength="79"></p>
+    </div>
+
+    <div class="section">
+        <h3>Byte Length Parsing</h3>
+        <table>
+            <thead>
+                <tr>
+                    <th>Type</th>
+                    <th>Hexadecimal</th>
+                    <th>Decimal (Unsigned)</th>
+                    <th>Decimal (Signed)</th>
+                    <th>Binary</th>
+                </tr>
+            </thead>
+            <tbody id="byteParsing">
+                <!-- 这里将插入字节解析的表格内容 -->
+            </tbody>
+        </table>
+    </div>
 </div>
 
 <script>
+    function openTab(tabId) {
+        const tabs = document.getElementsByClassName('tab-content');
+        for (let i = 0; i < tabs.length; i++) {
+            tabs[i].style.display = 'none';
+        }
+        document.getElementById(tabId).style.display = 'block';
+    }
+
+    // CRC 计算函数
+    function calculateCRC() {
+        const input = document.getElementById("modbusData").value.replace(/\s+/g, '').toUpperCase();
+        if (!input) {
+            document.getElementById("crcResult").innerHTML = '';
+            return;
+        }
+        
+        let crc = 0xFFFF;
+        for (let i = 0; i < input.length; i += 2) {
+            const byte = parseInt(input.substr(i, 2), 16);
+            crc ^= byte;
+            for (let j = 0; j < 8; j++) {
+                if ((crc & 1) !== 0) {
+                    crc >>= 1;
+                    crc ^= 0xA001;
+                } else {
+                    crc >>= 1;
+                }
+            }
+        }
+
+        const low = crc & 0xFF;
+        const high = (crc >> 8) & 0xFF;
+
+        const formattedMessage = input.match(/.{1,2}/g).join(' '); // 每两个字符分组，用空格分隔
+        const formattedCRC =  ('00' + low.toString(16)).slice(-2) + ' ' + ('00' + high.toString(16)).slice(-2);
+        const output = formattedMessage + ' <span class="crc">' + formattedCRC.toUpperCase() + '</span>';
+        
+        document.getElementById("crcResult").innerHTML = output;
+    }
+
+    // 一键复制功能
+    function copyToClipboard(elementId) {
+        const copyText = document.getElementById(elementId).innerText;
+        navigator.clipboard.writeText(copyText).then(function() {
+        }, function(err) {
+            alert("Failed to copy: ", err);
+        });
+    }
+
+    // Hexadecimal Converter 的 JavaScript 逻辑
     const MAX_BITS = 64; // 64位即8字节
     const BYTE_SIZES = {
         BYTE: 8,
