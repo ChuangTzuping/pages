@@ -36,7 +36,7 @@
             border: 1px solid #ccc;
             border-top: none;
         }
-        .active-tab {
+        .active-ttab {
             display: block;
         }
         .output p {
@@ -78,7 +78,7 @@
             font-family: monospace;
         }
         .crc-output span {
-            color: red; /* CRC部分字体颜色 */
+            color: red;
         }
         .copy-button {
             background-color: #008CBA;
@@ -90,16 +90,68 @@
         .copy-button:hover {
             background-color: #005f73;
         }
+        .float-converter {
+            margin-top: 20px;
+        }
+        .result-table {
+            margin-top: 20px;
+        }
+        .float-row {
+            background-color: #e8f4fc;
+        }
+        .byte-sequence {
+            font-family: monospace;
+            color: #7f8c8d;
+        }
+        .error {
+            color: #e74c3c;
+            font-size: 14px;
+            margin-top: 5px;
+        }
+        .input-group {
+            margin-bottom: 20px;
+        }
+        .converter-section {
+            margin-bottom: 30px;
+            padding: 15px;
+            border: 1px solid #ddd;
+            border-radius: 5px;
+            background-color: #f9f9f9;
+        }
+        .converter-section h3 {
+            margin-top: 0;
+            color: #2c3e50;
+        }
+        .converter-result {
+            margin-top: 15px;
+            padding: 10px;
+            background-color: #e8f4fc;
+            border-left: 4px solid #3498db;
+            text-align: left;
+        }
+        .converter-result strong {
+            display: block;
+            margin-bottom: 5px;
+        }
+        .result-value {
+            font-size: 1.2em;
+            font-weight: bold;
+            color: #2c3e50;
+            word-break: break-all;
+        }
+        .info-text {
+            font-size: 14px;
+            color: #7f8c8d;
+            margin-top: 5px;
+        }
     </style>
 </head>
 <body>
 
-<!-- <h1>Modbus Tools</h1> -->
-
-<!-- 页签导航 -->
 <ul>
     <li><a href="javascript:void(0);" class="tab-link" onclick="openTab('crcTab')">CRC Calculator</a></li>
     <li><a href="javascript:void(0);" class="tab-link" onclick="openTab('hexConverterTab')">Hex Converter</a></li>
+    <li><a href="javascript:void(0);" class="tab-link" onclick="openTab('floatParserTab')">Float Parser</a></li>
 </ul>
 
 <!-- CRC 校验工具页签内容 -->
@@ -107,7 +159,6 @@
     <h2>Modbus CRC Calculator</h2>
     <p>Enter Modbus data (in hexadecimal):</p>
     <input type="text" id="modbusData" placeholder="01 03 04 41 CB 42 B7 EF 27" oninput="calculateCRC()">
-
     <h3>Output</h3>
     <p id="crcResult"></p>
     <button class="copy-button" onclick="copyToClipboard('crcResult')">Copy Output</button>
@@ -121,7 +172,6 @@
         <p>DEC: <input type="text" id="decDisplay" oninput="delayedDecInput(event);"></p>
         <p>BIN: <input type="text" id="binDisplay" oninput="delayedBinInput(event);" maxlength="79"></p>
     </div>
-
     <div class="section">
         <h3>Byte Length Parsing</h3>
         <table>
@@ -134,14 +184,66 @@
                     <th>Binary</th>
                 </tr>
             </thead>
-            <tbody id="byteParsing">
-                <!-- 这里将插入字节解析的表格内容 -->
-            </tbody>
+            <tbody id="byteParsing"></tbody>
         </table>
     </div>
 </div>
 
+<!-- Float Parser 工具页签内容 -->
+<div id="floatParserTab" class="tab-content">
+    <h2>Modbus Float Parser</h2>
+
+    <!-- 16进制转浮点数 -->
+    <div class="converter-section">
+        <h3>16进制转浮点数</h3>
+        <div class="input-group">
+<!--            <label for="floatHexInput">Modbus数据（16进制，支持空格分隔）:</label>-->
+            <input type="text" id="floatHexInput" placeholder="例如：40490FDA 41C80000" style="width: 100%;">
+            <div class="info-text">输入4字节的16进制数据，系统将自动计算所有字节序对应的浮点数值</div>
+        </div>
+
+        <div id="floatError" class="error"></div>
+
+        <div class="result-table">
+            <table id="floatResultTable">
+                <thead>
+                    <tr>
+                        <th>序号</th>
+                        <th>原始字节序列</th>
+                        <th>大端序 (ABCD)</th>
+                        <th>小端序 (DCBA)</th>
+                        <th>国标序 (CDAB)</th>
+                    </tr>
+                </thead>
+                <tbody id="floatResults">
+                    <!-- 结果将在这里动态添加 -->
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+    <!-- 浮点数转16进制 -->
+    <div class="converter-section">
+        <h3>浮点数转16进制</h3>
+        <div class="input-group">
+<!--            <label for="floatValueInput">浮点数值:</label>-->
+            <input type="number" id="floatValueInput" step="any" placeholder="例如：3.14159" style="width: 100%;">
+            <div class="info-text">输入浮点数，系统将自动计算所有字节序对应的16进制值</div>
+        </div>
+
+        <div id="floatToHexError" class="error"></div>
+
+        <div id="floatToHexResult" class="converter-result">
+            <strong>转换结果:</strong>
+            <div class="result-value">大端序 (ABCD): <span id="hexResultBig">-</span></div>
+            <div class="result-value">小端序 (DCBA): <span id="hexResultLittle">-</span></div>
+            <div class="result-value">国标序 (CDAB): <span id="hexResultGb">-</span></div>
+        </div>
+    </div>
+</div>
+
 <script>
+    // 页签切换函数
     function openTab(tabId) {
         const tabs = document.getElementsByClassName('tab-content');
         for (let i = 0; i < tabs.length; i++) {
@@ -157,7 +259,7 @@
             document.getElementById("crcResult").innerHTML = '';
             return;
         }
-        
+
         let crc = 0xFFFF;
         for (let i = 0; i < input.length; i += 2) {
             const byte = parseInt(input.substr(i, 2), 16);
@@ -175,10 +277,10 @@
         const low = crc & 0xFF;
         const high = (crc >> 8) & 0xFF;
 
-        const formattedMessage = input.match(/.{1,2}/g).join(' '); // 每两个字符分组，用空格分隔
+        const formattedMessage = input.match(/.{1,2}/g).join(' ');
         const formattedCRC =  ('00' + low.toString(16)).slice(-2) + ' ' + ('00' + high.toString(16)).slice(-2);
         const output = formattedMessage + ' <span class="crc">' + formattedCRC.toUpperCase() + '</span>';
-        
+
         document.getElementById("crcResult").innerHTML = output;
     }
 
@@ -208,7 +310,7 @@
         timeout = setTimeout(() => {
             validateHexInput(event);
             hexToOthers();
-        }, 1000); // 1秒延迟
+        }, 500); // 0.5秒延迟
     }
 
     // 延迟处理DEC输入
@@ -217,7 +319,7 @@
         timeout = setTimeout(() => {
             validateDecInput(event);
             decToOthers();
-        }, 1000); // 1秒延迟
+        }, 500); // 0.5秒延迟
     }
 
     // 延迟处理BIN输入
@@ -226,7 +328,7 @@
         timeout = setTimeout(() => {
             validateBinInput(event);
             binToOthers();
-        }, 1000); // 1秒延迟
+        }, 500); // 0.5秒延迟
     }
 
     function hexToOthers() {
@@ -301,7 +403,7 @@
     // 限制 BIN 输入框只能输入 0 和 1
     function validateBinInput(event) {
         const input = event.target;
-        input.value = input.value.replace(/[^01]/g, ''); // 移除非0和1字符
+        input.value = input.value.replace(/[01](@ref)/g, ''); // 移除非0和1字符
         // 重新格式化输入内容
         input.value = formatBinary(input.value);
     }
@@ -366,6 +468,193 @@
         document.getElementById("binDisplay").value = '';
         document.getElementById("byteParsing").innerHTML = '';
     }
+
+    // 浮点数解析功能实现
+    function adjustBytes(bytes, byteOrder, isToFloat) {
+        if (!bytes || bytes.length !== 4) return bytes;
+
+        switch(byteOrder) {
+            case 'BIG_ENDIAN':
+                return bytes;
+            case 'LITTLE_ENDIAN':
+                return [bytes[3], bytes[2], bytes[1], bytes[0]];
+            case 'GB_ORDER':
+                return isToFloat ?
+                    [bytes[2], bytes[3], bytes[0], bytes[1]] :
+                    [bytes[1], bytes[0], bytes[3], bytes[2]];
+            default:
+                return bytes;
+        }
+    }
+
+    // 16进制转浮点数
+    function hexToFloat(hexString, byteOrder) {
+        // 验证输入
+        if (!hexString || hexString.length !== 8) {
+            throw new Error('需要8位16进制字符');
+        }
+
+        // 转换为字节数组
+        const bytes = [];
+        for (let i = 0; i < 8; i += 2) {
+            const byte = parseInt(hexString.substr(i, 2), 16);
+            if (isNaN(byte)) {
+                throw new Error('包含无效的16进制字符');
+            }
+            bytes.push(byte);
+        }
+
+        // 根据字节序调整字节顺序
+        const adjustedBytes = adjustBytes(bytes, byteOrder, true);
+
+        // 转换为32位整数
+        const intValue =
+            (adjustedBytes[0] << 24) |
+            (adjustedBytes[1] << 16) |
+            (adjustedBytes[2] << 8) |
+            adjustedBytes[3];
+
+        // 将整数解释为IEEE 754浮点数
+        const floatValue = new DataView(new ArrayBuffer(4));
+        floatValue.setInt32(0, intValue, false);
+        return floatValue.getFloat32(0, false);
+    }
+
+    // 浮点数转16进制
+    function floatToHex(floatValue, byteOrder) {
+        // 将浮点数转为32位整数
+        const buffer = new ArrayBuffer(4);
+        const dataView = new DataView(buffer);
+        dataView.setFloat32(0, floatValue, false);
+        const intValue = dataView.getInt32(0, false);
+
+        // 提取字节
+        const bytes = [
+            (intValue >> 24) & 0xFF,
+            (intValue >> 16) & 0xFF,
+            (intValue >> 8) & 0xFF,
+            intValue & 0xFF
+        ];
+
+        // 根据字节序调整字节顺序
+        const adjustedBytes = adjustBytes(bytes, byteOrder, false);
+
+        // 转换为16进制字符串（带空格分隔）
+        return adjustedBytes.map(b =>
+            b.toString(16).padStart(2, '0').toUpperCase()
+        ).join(' ');
+    }
+
+    // 解析浮点数批量数据
+    function parseFloatValues() {
+        const floatHexInput = document.getElementById('floatHexInput').value;
+        const resultsBody = document.getElementById('floatResults');
+        const errorElement = document.getElementById('floatError');
+
+        // 清除之前的结果和错误
+        resultsBody.innerHTML = '';
+        errorElement.textContent = '';
+
+        // 移除所有空格
+        const cleanHex = floatHexInput.replace(/\s+/g, '');
+
+        // 验证输入长度
+        if (cleanHex.length === 0) {
+            return;
+        }
+
+        if (cleanHex.length % 8 !== 0) {
+            errorElement.textContent = '输入长度必须是8的倍数（每组4字节）';
+            return;
+        }
+
+        // 分割为4字节组
+        const floatGroups = [];
+        for (let i = 0; i < cleanHex.length; i += 8) {
+            floatGroups.push(cleanHex.substring(i, i + 8));
+        }
+
+        // 解析每组数据
+        floatGroups.forEach((group, index) => {
+            try {
+                // 原始字节序列格式化（每2个字符加空格）
+                const formattedBytes = group.match(/.{1,2}/g).join(' ');
+
+                // 计算三种字节序的结果
+                const bigEndianValue = hexToFloat(group, 'BIG_ENDIAN');
+                const littleEndianValue = hexToFloat(group, 'LITTLE_ENDIAN');
+                const gbOrderValue = hexToFloat(group, 'GB_ORDER');
+
+                // 添加到结果表格
+                const row = document.createElement('tr');
+                row.className = 'float-row';
+                row.innerHTML = `
+                    <td>${index + 1}</td>
+                    <td class="byte-sequence">${formattedBytes}</td>
+                    <td>${bigEndianValue}</td>
+                    <td>${littleEndianValue}</td>
+                    <td>${gbOrderValue}</td>
+                `;
+                resultsBody.appendChild(row);
+            } catch (e) {
+                // 添加错误行
+                const row = document.createElement('tr');
+                row.className = 'error-row';
+                row.innerHTML = `
+                    <td>${index + 1}</td>
+                    <td class="byte-sequence">${group}</td>
+                    <td colspan="3" style="color: red;">解析错误: ${e.message}</td>
+                `;
+                resultsBody.appendChild(row);
+            }
+        });
+    }
+
+    // 浮点数转16进制
+    function convertFloatToHex() {
+        const floatValueInput = document.getElementById('floatValueInput').value;
+        const errorElement = document.getElementById('floatToHexError');
+
+        // 清除之前的错误
+        errorElement.textContent = '';
+
+        if (!floatValueInput) {
+            return;
+        }
+
+        const floatValue = parseFloat(floatValueInput);
+        if (isNaN(floatValue)) {
+            errorElement.textContent = '请输入有效的浮点数';
+            return;
+        }
+
+        // 计算三种字节序的结果
+        document.getElementById('hexResultBig').textContent = floatToHex(floatValue, 'BIG_ENDIAN');
+        document.getElementById('hexResultLittle').textContent = floatToHex(floatValue, 'LITTLE_ENDIAN');
+        document.getElementById('hexResultGb').textContent = floatToHex(floatValue, 'GB_ORDER');
+    }
+
+    // 页面加载后初始化
+    document.addEventListener('DOMContentLoaded', () => {
+        // 设置初始示例数据
+        document.getElementById('floatHexInput').value = '40490FDA 41C80000';
+        document.getElementById('floatValueInput').value = '3.14159';
+
+        // 设置输入框事件监听
+        document.getElementById('floatHexInput').addEventListener('input', () => {
+            clearTimeout(window.floatParseTimeout);
+            window.floatParseTimeout = setTimeout(parseFloatValues, 500);
+        });
+
+        document.getElementById('floatValueInput').addEventListener('input', () => {
+            clearTimeout(window.floatConvertTimeout);
+            window.floatConvertTimeout = setTimeout(convertFloatToHex, 500);
+        });
+
+        // 初始转换
+        parseFloatValues();
+        convertFloatToHex();
+    });
 </script>
 
 </body>
