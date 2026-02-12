@@ -1,0 +1,279 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <title>楼宇逻辑解谜</title>
+    <style>
+        :root { 
+            --primary: #6c5ce7; --bg: #f8f9fd; 
+            --success: #00b894; --error: #ff7675; 
+            --text: #2d3436;
+        }
+        body { font-family: 'PingFang SC', system-ui, sans-serif; background: var(--bg); display: flex; flex-direction: column; align-items: center; padding: 20px; color: var(--text); }
+        .container { background: white; padding: 30px; border-radius: 24px; box-shadow: 0 10px 40px rgba(0,0,0,0.08); max-width: 600px; width: 100%; }
+        h1 { margin-bottom: 20px; font-weight: 600; text-align: center; color: var(--primary); }
+        
+        .controls { margin-bottom: 25px; display: flex; gap: 10px; justify-content: center; flex-wrap: wrap; }
+        .input-group { background: #f1f2f6; padding: 8px 15px; border-radius: 10px; font-weight: bold; display: flex; align-items: center; }
+        #sizeInput { border: none; background: transparent; width: 35px; text-align: center; font-size: 1.1em; outline: none; margin-left: 5px; }
+        
+        button { padding: 10px 16px; border: none; border-radius: 10px; cursor: pointer; font-weight: 500; transition: 0.2s; }
+        .btn-gen { background: var(--success); color: white; }
+        .btn-solve { background: var(--primary); color: white; }
+        .btn-clear { background: #dfe6e9; color: #636e72; }
+        button:hover { transform: translateY(-1px); filter: brightness(1.05); }
+
+        /* 棋盘布局 */
+        .puzzle-wrapper { display: inline-grid; gap: 8px; margin: 20px auto; padding: 15px; background: #f1f2f6; border-radius: 16px; position: relative; left: 50%; transform: translateX(-50%); }
+        
+        .cell { width: 52px; height: 52px; display: flex; align-items: center; justify-content: center; border-radius: 8px; cursor: pointer; background: white; border: 1px solid #dcdde1; font-weight: bold; font-size: 1.4em; }
+        .cell.conflict { color: var(--error) !important; background: #fff5f5; border-color: var(--error); }
+        .cell.solved { color: var(--primary); }
+        
+        .clue { width: 52px; height: 52px; display: flex; align-items: center; justify-content: center; border: 2px solid var(--primary); color: var(--primary); font-weight: 800; border-radius: 50%; cursor: pointer; background: white; transition: 0.3s; font-size: 1.1em; }
+        .clue.valid { border-color: var(--success); background: var(--success); color: white; }
+        .clue.invalid { border-color: var(--error); background: var(--error); color: white; }
+
+        /* 选择器 */
+        #selectorPopup { position: absolute; display: none; background: white; border-radius: 12px; box-shadow: 0 10px 30px rgba(0,0,0,0.2); z-index: 100; padding: 10px; grid-template-columns: repeat(3, 1fr); gap: 6px; }
+        .opt-btn { width: 42px; height: 42px; display: flex; align-items: center; justify-content: center; border-radius: 8px; cursor: pointer; background: #f1f2f6; font-weight: bold; }
+        .opt-btn:hover { background: var(--primary); color: white; }
+        .opt-btn.clear { grid-column: span 3; background: #fab1a0; color: #d63031; width: auto; margin-top: 4px; }
+
+        /* 规则区说明 */
+        .rules-section { margin-top: 35px; border-top: 2px dashed #eee; padding-top: 20px; }
+        .rules-section h3 { font-size: 1.1em; color: var(--text); margin-bottom: 12px; display: flex; align-items: center; }
+        .rules-section h3::before { content: '📝'; margin-right: 8px; }
+        .rule-item { background: #f9f9ff; padding: 12px; border-radius: 10px; margin-bottom: 10px; font-size: 0.9em; line-height: 1.5; border-left: 4px solid var(--primary); }
+        .rule-item b { color: var(--primary); }
+        .example-box { display: flex; align-items: center; gap: 15px; background: white; border: 1px solid #eee; padding: 10px; border-radius: 8px; margin-top: 5px; font-weight: bold; }
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <h1>楼宇逻辑解谜</h1>
+
+    <div class="controls">
+        <div class="input-group">边长: <input type="number" id="sizeInput" value="4" min="3" max="6"></div>
+        <button class="btn-gen" onclick="generatePuzzle()">随机出题</button>
+        <button class="btn-solve" onclick="solvePuzzle()">一键求解</button>
+        <button class="btn-clear" onclick="resetBoard()">全部清空</button>
+    </div>
+
+    <div id="puzzleBoard" class="puzzle-wrapper"></div>
+
+    <div class="rules-section">
+        <h3>题目规则 (Skyscrapers Rules)</h3>
+        
+        <div class="rule-item">
+            <b>1. 唯一性：</b> 在 $N \times N$ 的网格中，每一行和每一列都必须包含数字 $1$ 到 $N$，且<b>不能重复</b>。
+        </div>
+
+        <div class="rule-item">
+            <b>2. 建筑高度：</b> 网格中的数字代表该位置建筑的高度。数字越大，建筑越高。
+        </div>
+
+        <div class="rule-item">
+            <b>3. 可见性逻辑：</b> 边缘圆圈内的数字表示从该位置向内看去，能看到的建筑数量。
+            <br><i>* 只有当一座建筑比它前面的所有建筑都高时，它才是可见的。</i>
+        </div>
+
+        <div class="example-box">
+            <span>示例：</span>
+            <span style="border:1px solid #ddd; padding:2px 5px;">(眼)</span> → 
+            <span style="color:var(--success)">2</span> , 1 , <span style="color:var(--success)">4</span> , 3 
+            <span style="color:#636e72; font-size:0.8em; font-weight:normal; margin-left:10px;">(由于4挡住了3，1挡不住，故线索值为 2)</span>
+        </div>
+    </div>
+</div>
+
+<div id="selectorPopup"></div>
+
+<script>
+let N = 4;
+const board = document.getElementById('puzzleBoard');
+const popup = document.getElementById('selectorPopup');
+
+function initBoard() {
+    N = parseInt(document.getElementById('sizeInput').value);
+    board.style.gridTemplateColumns = `repeat(${N + 2}, 52px)`;
+    board.innerHTML = '';
+    for (let r = 0; r < N + 2; r++) {
+        for (let c = 0; c < N + 2; c++) {
+            const isCorner = (r === 0 || r === N + 1) && (c === 0 || c === N + 1);
+            const isClue = r === 0 || r === N + 1 || c === 0 || c === N + 1;
+            const el = document.createElement('div');
+            if (isCorner) {
+                el.className = 'empty';
+            } else if (isClue) {
+                el.className = 'clue';
+                const type = r === 0 ? 'top' : r === N + 1 ? 'bottom' : c === 0 ? 'left' : 'right';
+                const idx = (type === 'top' || type === 'bottom') ? c - 1 : r - 1;
+                el.id = `clue-${type}-${idx}`;
+                el.onclick = (e) => showSelector(e, el, 0, N);
+            } else {
+                el.className = 'cell';
+                el.id = `cell-${r-1}-${c-1}`;
+                el.onclick = (e) => showSelector(e, el, 1, N);
+            }
+            board.appendChild(el);
+        }
+    }
+}
+
+function showSelector(e, target, min, max) {
+    popup.innerHTML = '';
+    popup.style.display = 'grid';
+    popup.style.left = `${e.pageX - 20}px`;
+    popup.style.top = `${e.pageY - 20}px`;
+    
+    for (let i = min; i <= max; i++) {
+        const btn = document.createElement('div');
+        btn.className = 'opt-btn';
+        btn.innerText = i === 0 ? 'X' : i;
+        btn.onclick = () => { 
+            target.innerText = (i === 0 ? '' : i); 
+            target.classList.remove('solved');
+            popup.style.display = 'none';
+            validateBoard(); 
+        };
+        popup.appendChild(btn);
+    }
+    const clearBtn = document.createElement('div');
+    clearBtn.className = 'opt-btn clear';
+    clearBtn.innerText = '清除';
+    clearBtn.onclick = () => { target.innerText = ''; target.classList.remove('solved'); popup.style.display = 'none'; validateBoard(); };
+    popup.appendChild(clearBtn);
+}
+
+function validateBoard() {
+    const grid = getGridState();
+    const clues = getCluesState();
+    document.querySelectorAll('.cell').forEach(el => el.classList.remove('conflict'));
+    document.querySelectorAll('.clue').forEach(el => el.classList.remove('valid', 'invalid'));
+
+    for (let r = 0; r < N; r++) {
+        for (let c = 0; c < N; c++) {
+            const val = grid[r][c];
+            if (val === 0) continue;
+            for (let i = 0; i < N; i++) {
+                if ((i !== c && grid[r][i] === val) || (i !== r && grid[i][c] === val)) {
+                    document.getElementById(`cell-${r}-${c}`).classList.add('conflict');
+                }
+            }
+        }
+    }
+
+    for (let i = 0; i < N; i++) {
+        checkLine(grid[i], `clue-left-${i}`, clues.left[i]);
+        checkLine([...grid[i]].reverse(), `clue-right-${i}`, clues.right[i]);
+        let col = []; for (let r = 0; r < N; r++) col.push(grid[r][i]);
+        checkLine(col, `clue-top-${i}`, clues.top[i]);
+        checkLine([...col].reverse(), `clue-bottom-${i}`, clues.bottom[i]);
+    }
+}
+
+function checkLine(arr, clueId, targetVal) {
+    if (!targetVal) return;
+    const el = document.getElementById(clueId);
+    const visible = countVisible(arr);
+    if (!arr.includes(0)) el.classList.add(visible === targetVal ? 'valid' : 'invalid');
+    else if (visible > targetVal) el.classList.add('invalid');
+}
+
+function countVisible(arr) {
+    let count = 0, max = 0;
+    for (let val of arr) { if (val > max) { count++; max = val; } }
+    return count;
+}
+
+function getGridState() {
+    let grid = [];
+    for (let r = 0; r < N; r++) {
+        grid[r] = [];
+        for (let c = 0; c < N; c++) grid[r][c] = parseInt(document.getElementById(`cell-${r}-${c}`).innerText) || 0;
+    }
+    return grid;
+}
+
+function getCluesState() {
+    const clues = { top:[], bottom:[], left:[], right:[] };
+    for(let i=0; i<N; i++) {
+        clues.top.push(parseInt(document.getElementById(`clue-top-${i}`).innerText) || 0);
+        clues.bottom.push(parseInt(document.getElementById(`clue-bottom-${i}`).innerText) || 0);
+        clues.left.push(parseInt(document.getElementById(`clue-left-${i}`).innerText) || 0);
+        clues.right.push(parseInt(document.getElementById(`clue-right-${i}`).innerText) || 0);
+    }
+    return clues;
+}
+
+function solvePuzzle() {
+    const clues = getCluesState();
+    let grid = Array.from({length: N}, () => Array(N).fill(0));
+    if (solveBacktrack(grid, 0, 0, clues)) {
+        for(let r=0; r<N; r++) {
+            for(let c=0; c<N; c++) {
+                const el = document.getElementById(`cell-${r}-${c}`);
+                el.innerText = grid[r][c];
+                el.classList.add('solved');
+            }
+        }
+        validateBoard();
+    } else alert("无法根据当前线索求出解！");
+}
+
+function solveBacktrack(grid, r, c, clues) {
+    if (r === N) return true;
+    let nR = c === N - 1 ? r + 1 : r, nC = c === N - 1 ? 0 : c + 1;
+    for (let v = 1; v <= N; v++) {
+        if (isSafe(grid, r, c, v, clues)) {
+            grid[r][c] = v;
+            if (solveBacktrack(grid, nR, nC, clues)) return true;
+            grid[r][c] = 0;
+        }
+    }
+    return false;
+}
+
+function isSafe(grid, r, c, v, clues) {
+    for (let i = 0; i < N; i++) if (grid[r][i] === v || grid[i][c] === v) return false;
+    grid[r][c] = v;
+    let ok = true;
+    if (c === N - 1) {
+        if (clues.left[r] && countVisible(grid[r]) !== clues.left[r]) ok = false;
+        if (clues.right[r] && countVisible([...grid[r]].reverse()) !== clues.right[r]) ok = false;
+    }
+    if (ok && r === N - 1) {
+        let col = []; for(let i=0; i<N; i++) col.push(grid[i][c]);
+        if (clues.top[c] && countVisible(col) !== clues.top[c]) ok = false;
+        if (clues.bottom[c] && countVisible([...col].reverse()) !== clues.bottom[c]) ok = false;
+    }
+    grid[r][c] = 0; return ok;
+}
+
+function generatePuzzle() {
+    initBoard();
+    let grid = Array.from({length: N}, () => Array(N).fill(0));
+    for(let r=0; r<N; r++) for(let c=0; c<N; c++) grid[r][c] = (r + c) % N + 1;
+    grid.sort(() => Math.random() - 0.5);
+    for(let i=0; i<N; i++) {
+        let r1 = Math.floor(Math.random()*N), r2 = Math.floor(Math.random()*N);
+        for(let j=0; j<N; j++) [grid[j][r1], grid[j][r2]] = [grid[j][r2], grid[j][r1]];
+    }
+    for(let i=0; i<N; i++) {
+        document.getElementById(`clue-left-${i}`).innerText = countVisible(grid[i]);
+        document.getElementById(`clue-right-${i}`).innerText = countVisible([...grid[i]].reverse());
+        let col = []; for(let j=0; j<N; j++) col.push(grid[j][i]);
+        document.getElementById(`clue-top-${i}`).innerText = countVisible(col);
+        document.getElementById(`clue-bottom-${i}`).innerText = countVisible([...col].reverse());
+    }
+    validateBoard();
+}
+
+function resetBoard() { initBoard(); }
+document.addEventListener('click', (e) => { if (!popup.contains(e.target) && !e.target.classList.contains('cell') && !e.target.classList.contains('clue')) popup.style.display = 'none'; });
+initBoard();
+</script>
+</body>
+</html>
