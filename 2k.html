@@ -2,7 +2,7 @@
 <html lang="zh-CN">
 <head>
     <meta charset="UTF-8">
-    <title>楼宇逻辑解谜 - 锁定版</title>
+    <title>楼宇逻辑解谜</title>
     <style>
         :root { --primary: #6c5ce7; --bg: #f8f9fd; --success: #00b894; --error: #ff7675; }
         body { 
@@ -10,123 +10,137 @@
             margin: 0; padding: 0; display: flex; flex-direction: column; align-items: center; min-height: 100vh;
         }
 
-        /* 顶部控制面板 */
+        /* 顶部导航条 */
         .side-panel {
             position: fixed; top: 0; left: 0; right: 0;
             display: flex; justify-content: center; align-items: center; gap: 15px;
-            background: white; padding: 12px;
-            box-shadow: 0 2px 10px rgba(0,0,0,0.1); z-index: 2100;
+            background: white; padding: 12px; box-shadow: 0 2px 10px rgba(0,0,0,0.1); z-index: 3000;
         }
-        #sizeInput { width: 45px; border: 1px solid #ddd; padding: 4px; text-align: center; }
-        button { padding: 8px 16px; border: none; border-radius: 6px; cursor: pointer; font-weight: bold; font-size: 0.9em; }
+        #sizeInput { width: 50px; border: 1px solid #ddd; padding: 4px; text-align: center; border-radius: 4px; }
+        button { padding: 8px 16px; border: none; border-radius: 6px; cursor: pointer; font-weight: bold; font-size: 0.9em; transition: 0.2s; }
         .btn-mode { border: 2px solid var(--primary); background: white; color: var(--primary); }
         .btn-mode.active { background: var(--primary); color: white; }
+        .btn-solve { background: var(--primary); color: white; }
         .btn-action { background: #eeefff; color: var(--primary); }
 
-        /* 布局容器 */
-        .main-content { margin-top: 80px; padding: 80px; } 
-        .puzzle-wrapper { display: inline-grid; gap: 8px; position: relative; padding: 15px; background: #f1f2f6; border-radius: 12px; }
+        /* 主画布：增加顶部间距，为向上弹出的尺子留出空间 */
+        .main-content { margin-top: 280px; padding: 40px; position: relative; } 
+        .puzzle-wrapper { 
+            display: inline-grid; gap: 5px; position: relative; padding: 20px; 
+            background: #f1f2f6; border-radius: 12px; box-shadow: 0 10px 30px rgba(0,0,0,0.05);
+        }
         
-        .item-container { position: relative; width: 45px; height: 45px; }
+        #noSolutionOverlay {
+            position: absolute; top: 0; left: 0; width: 100%; height: 100%;
+            display: none; align-items: center; justify-content: center;
+            font-size: 260px; color: rgba(255, 118, 117, 0.4); font-weight: bold;
+            pointer-events: none; z-index: 500;
+        }
 
+        .item-container { position: relative; width: 42px; height: 42px; }
+        
         .cell, .clue-main { 
             width: 100%; height: 100%; display: flex; align-items: center; justify-content: center; 
-            background: white; border: 1px solid #dcdde1; border-radius: 6px; font-weight: bold; font-size: 1.3em; 
+            background: white; border: 1px solid #dcdde1; border-radius: 5px; font-weight: bold; font-size: 1.2em; 
         }
-        .clue-main { border-radius: 50%; border: 2px solid var(--primary); color: var(--primary); font-size: 1.1em; transition: 0.2s; }
-        .clue-main.valid { background: var(--success); color: white; border-color: var(--success); }
-        .clue-main.invalid { background: var(--error); color: white; border-color: var(--error); }
+        .clue-main { border-radius: 50%; border: 2px solid #dcdde1; color: var(--primary); cursor: pointer; transition: 0.2s; }
+        .clue-main.focused { border-color: var(--primary); background: #eeeaff; box-shadow: 0 0 10px rgba(108, 92, 231, 0.5); z-index: 20; }
 
-        /* 平铺选项尺布局 */
-        .ruler { position: absolute; display: none; gap: 2px; z-index: 100; background: white; padding: 3px; border-radius: 4px; box-shadow: 0 4px 12px rgba(0,0,0,0.2); }
+        /* 尺子通用样式 */
+        .ruler { 
+            position: absolute; display: none; gap: 2px; z-index: 2500; 
+            background: white; padding: 4px; border-radius: 6px; 
+            box-shadow: 0 4px 15px rgba(0,0,0,0.2); 
+        }
         .edit-mode .ruler { display: flex; }
-        
-        /* 上边向下展开，其余向外 */
-        .ruler-top { top: 110%; left: 50%; transform: translateX(-50%); flex-direction: column; } 
-        .ruler-bottom { top: 110%; left: 50%; transform: translateX(-50%); flex-direction: column; } 
-        .ruler-left { right: 110%; top: 50%; transform: translateY(-50%); flex-direction: row-reverse; } 
-        .ruler-right { left: 110%; top: 50%; transform: translateY(-50%); flex-direction: row; }
 
-        .ruler-btn {
-            width: 26px; height: 26px; background: #dfe6e9; border-radius: 3px;
-            font-size: 13px; display: flex; align-items: center; justify-content: center;
+        /* 方向定制 */
+        /* 上边：坚持向上展开 */
+        .ruler-top { bottom: 115%; left: 50%; transform: translateX(-50%); flex-direction: column-reverse; } 
+        /* 下边：向下展开 */
+        .ruler-bottom { top: 115%; left: 50%; transform: translateX(-50%); flex-direction: column; } 
+        /* 左边：向左展开 */
+        .ruler-left { right: 115%; top: 50%; transform: translateY(-50%); flex-direction: row-reverse; } 
+        /* 右边：向右展开 */
+        .ruler-right { left: 115%; top: 50%; transform: translateY(-50%); flex-direction: row; }
+
+        .ruler-btn { 
+            width: 24px; height: 24px; background: #dfe6e9; border-radius: 3px; 
+            font-size: 12px; display: flex; align-items: center; justify-content: center; 
             cursor: pointer; transition: 0.1s;
         }
         .ruler-btn:hover { background: var(--primary); color: white; }
         .ruler-btn.active { background: var(--primary); color: white; }
 
-        /* 格子拾取器 */
-        .cell-picker {
-            position: absolute; display: none; grid-template-columns: repeat(3, 1fr); gap: 3px;
-            background: #2d3436; padding: 4px; border-radius: 6px; top: 50%; left: 50%; transform: translate(-50%, -50%); z-index: 1000;
-        }
-        .picker-btn { width: 24px; height: 24px; background: #555; color: white; border-radius: 3px; font-size: 12px; display: flex; align-items: center; justify-content: center; cursor: pointer; }
-        
-        /* 编辑模式下隐藏格子操作 */
-        .edit-mode .cell { opacity: 0.3; pointer-events: none; }
+        .cell-picker { position: absolute; display: none; grid-template-columns: repeat(3, 1fr); gap: 2px; background: #2d3436; padding: 4px; border-radius: 6px; top: 50%; left: 50%; transform: translate(-50%, -50%); z-index: 1000; }
+        .picker-btn { width: 28px; height: 28px; background: #555; color: white; border-radius: 3px; font-size: 13px; display: flex; align-items: center; justify-content: center; cursor: pointer; }
+        .edit-mode .cell { opacity: 0.4; pointer-events: none; }
     </style>
 </head>
 <body>
 
 <div class="side-panel">
-    <div class="panel-item"><span>边长:</span><input type="number" id="sizeInput" value="6" min="3" max="6" onchange="initBoard()"></div>
-    <button class="btn-mode" id="editToggle" onclick="toggleEditMode()">🛠️ 修改边值</button>
+    <div class="panel-item"><span>边长:</span><input type="number" id="sizeInput" value="6" min="3" max="10" onchange="initBoard()"></div>
+    <button class="btn-mode" id="editToggle" onclick="toggleEditMode()">🛠️ 编辑边缘 (键盘输入)</button>
+    <button class="btn-solve" onclick="solvePuzzle()">一键求解</button>
     <button class="btn-action" onclick="generatePuzzle()">随机出题</button>
-    <button class="btn-action" onclick="solvePuzzle()">一键求解</button>
-    <button class="btn-action" style="color:#e74c3c" onclick="resetBoard()">重置格子</button>
+    <button class="btn-action" style="color:#e74c3c" onclick="resetBoard()">重置</button>
 </div>
 
 <div class="main-content">
     <div id="puzzleBoard" class="puzzle-wrapper"></div>
+    <div id="noSolutionOverlay">X</div>
 </div>
 
 <script>
 let N = 6;
 let isEditMode = false;
+let focusIndex = -1;
+let clueOrder = []; 
 
 function toggleEditMode() {
     isEditMode = !isEditMode;
     document.getElementById('editToggle').classList.toggle('active', isEditMode);
     document.getElementById('puzzleBoard').classList.toggle('edit-mode', isEditMode);
-    hidePickers();
+    if(!isEditMode) clearFocus();
+    else if(focusIndex === -1) setFocus(0);
 }
 
 function initBoard() {
-    N = parseInt(document.getElementById('sizeInput').value);
+    let val = parseInt(document.getElementById('sizeInput').value);
+    N = Math.min(Math.max(val, 3), 10);
     const board = document.getElementById('puzzleBoard');
-    board.style.gridTemplateColumns = `repeat(${N + 2}, 45px)`;
+    board.style.gridTemplateColumns = `repeat(${N + 2}, 42px)`;
     board.innerHTML = '';
+    clueOrder = [];
+    document.getElementById('noSolutionOverlay').style.display = 'none';
 
     for (let r = 0; r < N + 2; r++) {
         for (let c = 0; c < N + 2; c++) {
             const container = document.createElement('div');
             container.className = 'item-container';
             const isCorner = (r === 0 || r === N + 1) && (c === 0 || c === N + 1);
-            const isClue = r === 0 || r === N + 1 || c === 0 || c === N + 1;
-
             if (isCorner) { board.appendChild(container); continue; }
 
+            const isClue = r === 0 || r === N + 1 || c === 0 || c === N + 1;
             if (isClue) {
                 const type = r === 0 ? 'top' : r === N + 1 ? 'bottom' : c === 0 ? 'left' : 'right';
                 const idx = (type === 'top' || type === 'bottom') ? c - 1 : r - 1;
                 const main = document.createElement('div');
                 main.className = 'clue-main'; main.id = `clue-${type}-${idx}`;
                 
+                main.onclick = (e) => {
+                    if(!isEditMode) return;
+                    e.stopPropagation();
+                    setFocus(clueOrder.indexOf(main.id));
+                };
+
                 const ruler = document.createElement('div');
                 ruler.className = `ruler ruler-${type}`;
                 for (let i = 1; i <= N; i++) {
                     const btn = document.createElement('div');
                     btn.className = 'ruler-btn'; btn.innerText = i;
-                    btn.onclick = (e) => {
-                        e.stopPropagation();
-                        // 逻辑修改：无论如何点击，都执行赋值，不设置清空条件
-                        main.innerText = i;
-                        // 更新所有子按钮的选中状态
-                        Array.from(ruler.children).forEach(b => {
-                            b.classList.toggle('active', b.innerText == i);
-                        });
-                        validateBoard();
-                    };
+                    btn.onclick = (e) => { e.stopPropagation(); fillClue(main.id, i); };
                     ruler.appendChild(btn);
                 }
                 container.appendChild(main);
@@ -144,7 +158,6 @@ function initBoard() {
                 const x = document.createElement('div'); x.className='picker-btn'; x.style.background='#d63031'; x.innerText='×';
                 x.onclick=(e)=>{ e.stopPropagation(); cell.innerText=''; hidePickers(); validateBoard(); };
                 picker.appendChild(x);
-
                 cell.onclick = (e) => { e.stopPropagation(); hidePickers(); picker.style.display = 'grid'; };
                 container.appendChild(cell);
                 container.appendChild(picker);
@@ -152,25 +165,88 @@ function initBoard() {
             board.appendChild(container);
         }
     }
+
+    for(let i=0; i<N; i++) clueOrder.push(`clue-top-${i}`);
+    for(let i=0; i<N; i++) clueOrder.push(`clue-right-${i}`);
+    for(let i=N-1; i>=0; i--) clueOrder.push(`clue-bottom-${i}`);
+    for(let i=N-1; i>=0; i--) clueOrder.push(`clue-left-${i}`);
 }
 
-function hidePickers() { document.querySelectorAll('.cell-picker').forEach(p => p.style.display = 'none'); }
-document.addEventListener('click', hidePickers);
+function setFocus(index) {
+    clearFocus();
+    focusIndex = index;
+    if(index !== -1) {
+        const el = document.getElementById(clueOrder[index]);
+        if(el) el.classList.add('focused');
+    }
+}
 
-// 后台逻辑
+function clearFocus() {
+    document.querySelectorAll('.clue-main').forEach(el => el.classList.remove('focused'));
+    focusIndex = -1;
+}
+
+function fillClue(id, val) {
+    const el = document.getElementById(id);
+    el.innerText = val;
+    const rulerBtns = el.parentElement.querySelectorAll('.ruler-btn');
+    rulerBtns.forEach(b => b.classList.toggle('active', b.innerText == val));
+    validateBoard();
+    if (isEditMode && focusIndex !== -1) {
+        let next = (focusIndex + 1) % clueOrder.length;
+        setFocus(next);
+        if(next === 0) solvePuzzle(); 
+    }
+}
+
+document.addEventListener('keydown', (e) => {
+    if (!isEditMode || focusIndex === -1) return;
+    const key = e.key;
+    if (key >= '1' && key <= '9') {
+        const val = parseInt(key);
+        if(val <= N) fillClue(clueOrder[focusIndex], val);
+    } else if (key === '0' && N === 10) {
+        fillClue(clueOrder[focusIndex], 10);
+    } else if (key === 'Backspace') {
+        const id = clueOrder[focusIndex];
+        const el = document.getElementById(id);
+        el.innerText = '';
+        el.parentElement.querySelectorAll('.ruler-btn').forEach(b => b.classList.remove('active'));
+    } else if (key === 'Tab') {
+        e.preventDefault();
+        setFocus((focusIndex + 1) % clueOrder.length);
+    }
+});
+
+function hidePickers() { document.querySelectorAll('.cell-picker').forEach(p => p.style.display = 'none'); }
+document.addEventListener('click', (e) => { 
+    if(!e.target.closest('.item-container')) {
+        hidePickers(); 
+        if(isEditMode) clearFocus(); 
+    }
+});
+
+function solvePuzzle() {
+    document.getElementById('noSolutionOverlay').style.display = 'none';
+    const clues = getCluesState();
+    let grid = Array.from({length: N}, () => Array(N).fill(0));
+    if (solveBacktrack(grid, 0, 0, clues)) {
+        for(let r=0; r<N; r++) for(let c=0; c<N; c++) {
+            const el = document.getElementById(`cell-${r}-${c}`);
+            el.innerText = grid[r][c]; el.style.color = 'var(--primary)';
+        }
+        validateBoard();
+    } else {
+        document.getElementById('noSolutionOverlay').style.display = 'flex';
+    }
+}
+
 function countVisible(arr) {
     let count = 0, max = 0;
     for (let val of arr) { if (val > max) { count++; max = val; } }
     return count;
 }
-function getGridState() {
-    let grid = [];
-    for (let r = 0; r < N; r++) {
-        grid[r] = [];
-        for (let c = 0; c < N; c++) grid[r][c] = parseInt(document.getElementById(`cell-${r}-${c}`).innerText) || 0;
-    }
-    return grid;
-}
+
 function getCluesState() {
     const clues = { top:[], bottom:[], left:[], right:[] };
     for(let i=0; i<N; i++) {
@@ -181,10 +257,14 @@ function getCluesState() {
     }
     return clues;
 }
+
 function validateBoard() {
-    const grid = getGridState();
     const clues = getCluesState();
-    document.querySelectorAll('.cell').forEach(el => el.style.color = '#2d3436');
+    const grid = [];
+    for (let r = 0; r < N; r++) {
+        grid[r] = [];
+        for (let c = 0; c < N; c++) grid[r][c] = parseInt(document.getElementById(`cell-${r}-${c}`).innerText) || 0;
+    }
     document.querySelectorAll('.clue-main').forEach(el => el.classList.remove('valid', 'invalid'));
     for (let i = 0; i < N; i++) {
         checkLine(grid[i], `clue-left-${i}`, clues.left[i]);
@@ -194,27 +274,19 @@ function validateBoard() {
         checkLine([...col].reverse(), `clue-bottom-${i}`, clues.bottom[i]);
     }
 }
+
 function checkLine(arr, id, target) {
     if (!target) return;
-    const el = document.getElementById(id);
     const vis = countVisible(arr);
+    const el = document.getElementById(id);
     if (!arr.includes(0)) el.classList.add(vis === target ? 'valid' : 'invalid');
     else if (vis > target) el.classList.add('invalid');
 }
-function solvePuzzle() {
-    const clues = getCluesState();
-    let grid = Array.from({length: N}, () => Array(N).fill(0));
-    if (solveBacktrack(grid, 0, 0, clues)) {
-        for(let r=0; r<N; r++) for(let c=0; c<N; c++) {
-            const el = document.getElementById(`cell-${r}-${c}`);
-            el.innerText = grid[r][c]; el.style.color = 'var(--primary)';
-        }
-        validateBoard();
-    } else alert("无解！");
-}
+
 function solveBacktrack(grid, r, c, clues) {
     if (r === N) return true;
-    let nR = (c === N-1) ? r + 1 : r, nC = (c === N-1) ? 0 : c + 1;
+    let nR = (c === N-1) ? r + 1 : r;
+    let nC = (c === N-1) ? 0 : c + 1;
     for (let v = 1; v <= N; v++) {
         if (isSafe(grid, r, c, v, clues)) {
             grid[r][c] = v;
@@ -224,25 +296,33 @@ function solveBacktrack(grid, r, c, clues) {
     }
     return false;
 }
+
 function isSafe(grid, r, c, v, clues) {
-    for (let i = 0; i < N; i++) if (grid[r][i] === v || grid[i][c] === v) return false;
-    grid[r][c] = v; let ok = true;
+    for (let i = 0; i < r; i++) if (grid[i][c] === v) return false;
+    for (let i = 0; i < c; i++) if (grid[r][i] === v) return false;
+    grid[r][c] = v;
+    let ok = true;
     if (c === N - 1) {
         if (clues.left[r] && countVisible(grid[r]) !== clues.left[r]) ok = false;
-        if (clues.right[r] && countVisible([...grid[r]].reverse()) !== clues.right[r]) ok = false;
+        if (ok && clues.right[r] && countVisible([...grid[r]].reverse()) !== clues.right[r]) ok = false;
     }
     if (ok && r === N - 1) {
         let col = []; for(let i=0; i<N; i++) col.push(grid[i][c]);
         if (clues.top[c] && countVisible(col) !== clues.top[c]) ok = false;
-        if (clues.bottom[c] && countVisible([...col].reverse()) !== clues.bottom[c]) ok = false;
+        if (ok && clues.bottom[c] && countVisible([...col].reverse()) !== clues.bottom[c]) ok = false;
     }
-    grid[r][c] = 0; return ok;
+    grid[r][c] = 0;
+    return ok;
 }
+
 function generatePuzzle() {
     initBoard();
-    let grid = Array.from({length: N}, () => Array(N).fill(0));
-    for(let r=0; r<N; r++) for(let c=0; c<N; c++) grid[r][c] = (r + c) % N + 1;
-    for(let i=0; i<50; i++) {
+    let base = Array.from({length: N}, (_, i) => i + 1);
+    let grid = Array.from({length: N}, (_, r) => {
+        let row = [...base];
+        return row.map((_, i) => row[(i + r) % N]);
+    });
+    for(let i=0; i<N*2; i++){
         let r1 = Math.floor(Math.random()*N), r2 = Math.floor(Math.random()*N);
         [grid[r1], grid[r2]] = [grid[r2], grid[r1]];
     }
@@ -255,7 +335,13 @@ function generatePuzzle() {
     }
     validateBoard();
 }
-function resetBoard() { document.querySelectorAll('.cell').forEach(el => { el.innerText = ''; }); validateBoard(); }
+
+function resetBoard() { 
+    document.querySelectorAll('.cell').forEach(el => el.innerText = ''); 
+    document.getElementById('noSolutionOverlay').style.display = 'none';
+    validateBoard(); 
+}
+
 initBoard();
 </script>
 </body>
